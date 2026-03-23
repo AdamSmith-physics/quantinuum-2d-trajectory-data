@@ -5,14 +5,14 @@ from matplotlib import pyplot as plt
 
 
 rate = 1.0  # rate of coupling to the resevoirs compared to the rate of the system
-Nx = 9
-Ny = 9
+Nx = 7
+Ny = 7
 N = Nx * Ny
 
 V = -1.0
 
 num_iterations = 10000
-steps = 2*3200  # Multiples of N
+steps = 3200  # Multiples of N
 
 
 # Extract currents
