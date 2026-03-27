@@ -12,7 +12,7 @@ N = Nx * Ny
 V = -1.0
 
 num_iterations = 10000
-steps = 3200  # Multiples of N
+steps = 300  # Multiples of number of bonds
 
 
 # Extract currents
@@ -82,7 +82,7 @@ def trajectory(procid, data):
     current_list = np.zeros((steps+1, num_bonds), dtype=np.float64)
     current_list[0] = 0.0
 
-    for step in range(steps*N):
+    for step in range(steps*num_bonds):
 
         reservoir_prob = 2*rate / (num_bonds + 2*rate)  # Probability of selecting a reservoir bond
 
@@ -116,13 +116,13 @@ def trajectory(procid, data):
             previous_state = state.copy()
 
             if not reservoir:
-                current_list[step // N + 1, bond_index] = state[n2] - state[n1]  # Record current flow
+                current_list[step // num_bonds + 1, bond_index] += state[n2] - state[n1]  # Record current flow
 
         else:
             state = previous_state.copy()
 
         if step % N == 0:
-            n_list[step // N + 1] = state.copy()
+            n_list[step // num_bonds + 1] = state.copy()
 
     return n_list, current_list
 
