@@ -11,7 +11,7 @@ N = Nx * Ny
 
 V = -1.0
 
-num_iterations = 10000
+num_iterations = 1000000
 steps = 300  # Multiples of number of bonds
 
 
