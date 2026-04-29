@@ -1,4 +1,5 @@
 figures/
+data_local/
 .DS_Store
 .vscode/
 *.sif
