@@ -1,4 +1,4 @@
-name: corner_driven_env
+name: quantum_trajectories2d
 channels:
   - conda-forge
   - defaults
@@ -12,7 +12,4 @@ dependencies:
   - h5py
   - pip
   - pip:
-      - pytket==2.9.1 
-      - pytket-quantinuum==0.52.0
       - pytket-quantinuum[pecos]
-      - qnexus==0.32.0
