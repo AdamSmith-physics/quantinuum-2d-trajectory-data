@@ -116,9 +116,9 @@ print("Saving results...")
 
 #SAVE THE OUTPUTS
 # Create data directory if it doesn't exist
-if not os.path.exists(f'data_local/fermions'):
-    os.makedirs(f'data_local/fermions')
+if not os.path.exists(f'data_local'):
+    os.makedirs(f'data_local')
 
-save_to_hdf5(data, f'data_local/fermions/{start}_V{V}_phi{phi}_dt{dt}_p{p}_steps{steps}_shots{shots}.h5')
+save_to_hdf5(data, f'data_local/fermions_{start}_V{V}_phi{phi}_dt{dt}_p{p}_steps{steps}_shots{shots}.h5')
 
 print("Finished!")

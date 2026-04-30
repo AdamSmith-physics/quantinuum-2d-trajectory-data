@@ -20,7 +20,7 @@ steps = 2
 shots = 2
 start = 'random'
 n_init = [] 
-trotter_order = [0,1,2,3]  
+trotter_order = [0,1,2,3]  #Default sector order
 trotter_staggered = False  # Whether to use staggered sectors or not
 
 print("Running with parameters:")
@@ -114,11 +114,11 @@ print("Saving results...")
 
 #SAVE THE OUTPUTS
 # Create data directory if it doesn't exist
-if not os.path.exists(f'data_local/bosons'):
-    os.makedirs(f'data_local/bosons')
+if not os.path.exists(f'data_local'):
+    os.makedirs(f'data_local')
 
-trotter_order_string = "_order" + str(trotter_order).replace(' ', '').replace('[','').replace(']','').replace(',','')  # Format for filename
+trotter_order_string = "_order" + str(trotter_order).replace(' ', '').replace('[','').replace(']','').replace(',','') if trotter_order != [0,1,2,3] else ""  # Format for filename
 staggered_string = "_staggered" if trotter_staggered else ""
-save_to_hdf5(data, f'data_local/bosons/{start}_V{V}_phi{phi}_dt{dt}_p{p}_steps{steps}_shots{shots}{trotter_order_string}{staggered_string}.h5')
+save_to_hdf5(data, f'data_local/bosons_{start}_V{V}_phi{phi}_dt{dt}_p{p}_steps{steps}_shots{shots}{trotter_order_string}{staggered_string}.h5')
 
 print("Finished!")
