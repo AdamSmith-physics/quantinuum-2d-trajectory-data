@@ -206,10 +206,10 @@ def kraus_current(path, filename, shots):
     """
     
     trajectory_source = load_key_from_hdf5(path+filename, "density_circuit/trajectory_source")[:shots] 
-    trajectory_sink = load_key_from_hdf5(path+filename, "density_circuit/trajectory_sink")[:shots]
+    trajectory_drain = load_key_from_hdf5(path+filename, "density_circuit/trajectory_drain")[:shots]
     
-    # combined kraus operator for each circuit are now labelled between 0 and 8 (instead of 0,1,2 for each sink and source separately)
-    trajectory = trajectory_source + 3*trajectory_sink 
+    # combined kraus operator for each circuit are now labelled between 0 and 8 (instead of 0,1,2 for each drain and source separately)
+    trajectory = trajectory_source + 3*trajectory_drain 
     
     # Kraus current contrib and SEM for each timestep (for each trajectories)
     inst_current = (trajectory==1)/2 + (trajectory==4)/2 + (trajectory==6)/2 + (trajectory==8)/2 + (trajectory==7) #(shots, steps) ---> 0=0, 7=1, else=1/2 
