@@ -3,7 +3,7 @@ import numpy as np
 
 ### Writing to HDF5 files ###
 
-def _save_dict_to_h5(group, data_dict):
+def _save_dict_to_h5(group, data_dict):    
     for key, value in data_dict.items():
         if isinstance(value, dict):
             # If it's a dictionary, create a new group

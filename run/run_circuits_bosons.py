@@ -11,7 +11,10 @@ import os
 import numpy as np
 
 
-#PARAMETERS
+######################## PARAMETERS ######################
+N = 16 # Number of sites
+J = 1
+dephasing = False
 V = 0.0
 phi = 0.0 # Peierls phase in units of pi
 dt = 0.31
@@ -37,30 +40,23 @@ if start == 'custom':
     print(f"n_init = {n_init}\n")
 
 
-N = 16 # Number of sites
-J = 1
-dephasing = False
-
 # Create the list of bonds for the sectors
 sectors_list = commuting_bonds(N, staggered=trotter_staggered)
 sectors_list = [sectors_list[i] for i in trotter_order]
 
 
-#LOAD AND RUN CIRCUIT 
+######################## RUN CIRCUIT ####################### 
 print("Building circuits...")
 circuits = [trajectory_density(J, V, N=N, dt=dt, p=p, steps=steps, start=start, n_init = n_init, sector_list=sectors_list, phi=phi, name="2D Trajectory Bosons", dephasing = dephasing)]
 for ii in range(4):
     circuits.append(trajectory_current(J, V, N=N, dt=dt, sector=sectors_list[ii], p=p, steps=steps, start=start, n_init = n_init, sector_list=sectors_list, phi=phi, name=f"2D Trajectory Bosons - Current {ii+1}", dephasing = dephasing))
-
 print(f"Circuits built.\n")
 
 print("Running..."); timer = Timer()
-
 results_local = run_local(circuits, shots=shots)
-
 print(f"Finished running! Time elapsed is {timer}.\n")
 
-
+######################## READ RESULTS ####################### 
 print("Reading results...")
 data = dict()
 data["parameters"] = {
@@ -79,20 +75,20 @@ data["parameters"] = {
     "sector_bond_4": sectors_list[3]
 }
 
-coin1, coin2, out1, out2, trajectory_source, trajectory_sink, c_init, densities = density_readout(results_local[0], N=N, shots=shots, steps=steps)
+coin1, coin2, out1, out2, trajectory_source, trajectory_drain, c_init, densities = density_readout(results_local[0], N=N, shots=shots, steps=steps)
 
 data[f"density_circuit"] = {
         "coin1": coin1,
         "coin2": coin2,
         "trajectory_source": trajectory_source,
-        "trajectory_sink": trajectory_sink,
+        "trajectory_drain": trajectory_drain,
         "c_init": c_init,
         "densities": densities
     }
 
 for ii in range(4):
 
-    coin1, coin2, out1, out2, trajectory_source, trajectory_sink, c_init, den_currents = current_readout(sectors_list[ii], results_local[ii+1], N=N, shots=shots, steps=steps)
+    coin1, coin2, out1, out2, trajectory_source, trajectory_drain, c_init, den_currents = current_readout(sectors_list[ii], results_local[ii+1], N=N, shots=shots, steps=steps)
 
     data[f"current_circuit_{ii+1}"] = {
             "coin1": coin1,
@@ -102,7 +98,7 @@ for ii in range(4):
             "den_currents": den_currents,
             "c_init": c_init,
             "trajectory_source": trajectory_source,
-            "trajectory_sink": trajectory_sink
+            "trajectory_drain": trajectory_drain
         }
 
 
@@ -111,8 +107,7 @@ print(f"Results read.\n")
 print("Saving results...")
 
 
-
-#SAVE THE OUTPUTS
+######################## SAVE THE OUTPUTS ####################### 
 # Create data directory if it doesn't exist
 if not os.path.exists(f'data_local'):
     os.makedirs(f'data_local')

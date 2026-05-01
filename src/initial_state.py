@@ -2,10 +2,10 @@ import numpy as np
 
 def product_state(occupation_list, Nx, Ny):
     """
-    Create a product state given a list of occupations.
+    Create a product state given the list of occupations for all Nx*Ny sites.
     Each occupation is either 0 (empty) or 1 (filled).
     """
-    alpha_list = []
+
     N = Nx * Ny
 
     if len(occupation_list) != N:
@@ -26,6 +26,7 @@ def product_state(occupation_list, Nx, Ny):
 
 
 def checkerboard_state(Nx, Ny):
+
     occupation_list = []
     # Create a checkerboard pattern of occupations
     for y in range(Ny):
@@ -39,12 +40,19 @@ def checkerboard_state(Nx, Ny):
 
 
 def empty_state(Nx, Ny):
+
     occupation_list = [0] * (Nx * Ny)  # all sites empty
+
     return product_state(occupation_list, Nx, Ny)
 
 
 def random_state(Nx, Ny, even_parity=False):
+    """
+    Create an initial random occupation pattern for Nx*Ny sites.
+    For even occupation number, use even_parity=True.
+    """
     occupation_list = np.random.choice([0, 1], size=(Nx * Ny,), p=[0.5, 0.5])
     if even_parity:
         occupation_list[-1] = 1 - occupation_list[-1] # Ensure even parity by flipping the last site if necessary
+
     return product_state(occupation_list, Nx, Ny)

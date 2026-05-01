@@ -4,7 +4,16 @@ from .parameter_dataclasses import SimulationParameters
 # from tqdm import tqdm
 
 def apply_n(alpha, i, N):
+    """Calculates the new state vector after applying operator n on site i.
 
+    Args:
+        alpha (array): initial vector
+        i (int): site acted on.
+        N (int): total number of sites
+
+    Returns:
+        alpha_new: final vector
+    """
     # select row for cdag_i
     alpha_cut = np.abs(alpha[i+N,:])
 
@@ -35,6 +44,17 @@ def apply_n(alpha, i, N):
 
 
 def apply_1_minus_n(alpha, i, N):
+    """Calculates the new state vector after applying operator 1-n on site i.
+
+    Args:
+        alpha (array): initial vector
+        i (int): site acted on.
+        N (int): total number of sites
+
+    Returns:
+        alpha_new: final vector
+    """
+
     alpha_cut = np.abs(alpha[i,:])
 
     i0 = np.argmax(alpha_cut)
@@ -61,6 +81,17 @@ def apply_1_minus_n(alpha, i, N):
 
 
 def apply_cn(alpha, i, N):
+    """Calculates the new state vector after applying operator c*n on site i.
+
+    Args:
+        alpha (array): initial vector
+        i (int): site acted on.
+        N (int): total number of sites
+
+    Returns:
+        alpha_new: final vector
+    """
+
     alpha = apply_n(alpha, i, N)
     alpha[:,-1] = np.zeros((2*N,))
     alpha[i, -1] = 1        # remove particle at site i st. c_i|psi'> = 0
@@ -69,6 +100,17 @@ def apply_cn(alpha, i, N):
 
 
 def apply_cdag_1_minus_n(alpha, i, N):
+    """Calculates the new state vector after applying operator c†(1-n) on site i.
+
+    Args:
+        alpha (array): starting state
+        i (int): site acted on.
+        N (int): total number of sites
+
+    Returns:
+        alpha_new: final vector state
+    """
+
     alpha = apply_1_minus_n(alpha, i, N)
     alpha[:,-1] = np.zeros((2*N,))
     alpha[i+N, -1] = 1  # remove particle at site i+N st. cdag_i|psi'> = 0
@@ -77,6 +119,19 @@ def apply_cdag_1_minus_n(alpha, i, N):
 
 
 def pick_kraus(C, p, N, site_in, site_out):
+    """Choose the Kraus operator acting on source/drain depending on probability p.
+    Kraus_in and Kraus_out are numbered 0 (do nothing), 1 (measurement + change occupation), 2 (measurement only).
+
+    Args:
+        C (array): C matrix 
+        p (int): probability of measuring site
+        N (int): total number of sites
+        site_in (int): source
+        site_out (int): drain
+
+    Returns:
+        K_in, K_out: Kraus operator acting on dource or drain
+    """
 
     p_capped = max(0, min(p, 1))  # Ensure p is between 0 and 1
 
@@ -95,6 +150,16 @@ def pick_kraus(C, p, N, site_in, site_out):
 
 
 def trajectory(procid, data, batch_size, steps, params: SimulationParameters):
+    """
+    Run a set of free-fermion trajectories on any given CPU core.
+
+    Args:
+        procid (int): associated CPU core
+        data (dict): set of matrices/vectors needed for simulation (alpha, U, H...)
+        batch_size (list): numer of trajectories per procid
+        steps (int): timesteps in each trajectory
+        params (SimulationParameters): initial parameter choices
+    """
 
     # Unpack parameters ######
     steps = params.steps
@@ -119,6 +184,7 @@ def trajectory(procid, data, batch_size, steps, params: SimulationParameters):
 
     for run in range(batch_size):
 
+        # Unpack Hamiltonian H, unitary evolution operator U and initial vector state alpha 
         H = data["H"].copy()
         U = data["U"].copy()
         if initial_state == "random":
@@ -126,7 +192,7 @@ def trajectory(procid, data, batch_size, steps, params: SimulationParameters):
         else:
             alpha = data["alpha"].copy()
 
-        C = alpha @ alpha.T.conj() 
+        C = alpha @ alpha.T.conj()  # Create the C matrix determining the Fermionic Gaussian State
 
         K_list = np.zeros((steps,9), dtype=int)
         n_list = np.zeros((steps+1, N), dtype=float)
@@ -138,6 +204,7 @@ def trajectory(procid, data, batch_size, steps, params: SimulationParameters):
 
             alpha = U @ alpha
 
+            # Apply Kraus operator on source 
             C = alpha @ alpha.T.conj()
             K_in, _ = pick_kraus(C, p, N, site_in, site_out)
 
@@ -149,7 +216,7 @@ def trajectory(procid, data, batch_size, steps, params: SimulationParameters):
             elif K_in == 2:
                 alpha = apply_n(alpha, site_in, N)
 
-            
+            # Apply Kraus operator on drain 
             C = alpha @ alpha.T.conj()
             _, K_out = pick_kraus(C, p, N, site_in, site_out)
 
@@ -161,9 +228,9 @@ def trajectory(procid, data, batch_size, steps, params: SimulationParameters):
                 elif drive_type == "dephasing":
                     alpha = apply_n(alpha, site_out, N)
 
-            K_list[step, K_in + 3*K_out] = 1
+            K_list[step, K_in + 3*K_out] = 1        # 9 combined Kraus operators numbered from 0-8
             
-
+            # If corner dephasing istead of corner drive:
             if corner_dephasing and step > steps//2:
                 C = alpha @ alpha.T.conj()
                 if np.random.rand(1) < p: 
@@ -176,8 +243,9 @@ def trajectory(procid, data, batch_size, steps, params: SimulationParameters):
 
             C = alpha @ alpha.T.conj()
 
+            # Measure occupation for each site at given timestep
             n_list[step+1] = [np.real(C[N+i,N+i]) for i in range(N)]
-
+            # Measure currents for each bond at given timestep
             currents_list[step+1] = [np.real(1j*(H[n1,n2]*C[n1+N,n2+N] - H[n2,n1]*C[n2+N,n1+N])) for n1, n2 in bonds]
 
             if step == steps - 1:
@@ -196,8 +264,5 @@ def trajectory(procid, data, batch_size, steps, params: SimulationParameters):
             print(f"Process {procid}, run {run+1}/{batch_size} completed", end="\r")
 
     trajectory_data = {"K_list": K_list_accumulated, "n_list": n_list_accumulated, "currents_list": currents_list_accumulated, "density_correlations": density_correlations_accumulated}
-
-    # data["completed"] += 1
-    # print(f"Completed {data['completed']}", end="\r") # May not give correct value!
 
     data[procid] = trajectory_data

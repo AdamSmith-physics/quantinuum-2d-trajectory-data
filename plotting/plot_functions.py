@@ -148,6 +148,7 @@ def get_device_observables(path, filename, statistics, shots):
 
     return n_avg, n_sem, currents, currents_sem, bonds
 
+
 def get_numerics_observables(path, filename, shots):
     """Calculates average densities and currents with corresponding error
         from ideal numerics (trotter circuit and Lindblad limit) ran with Julia code"
@@ -219,6 +220,7 @@ def kraus_current(path, filename, shots):
 
     return driving_current, inst_current
 
+
 def current_cut_average(path, filename, statistics, shots, Nx=4, Ny=4):
     """ Takes the average instantaneous currents and calculates the toatl average currents with respect to
     the taxicab distance from the source r = (x+y)"
@@ -258,6 +260,7 @@ def current_cut_average(path, filename, statistics, shots, Nx=4, Ny=4):
     j_cut_sem = np.sqrt(np.sum(j_cut_var)/len(j_cut_var))   # error of the current average
 
     return average_j_cut, j_cut_sem
+
 
 def density_imbalance(n_avg, sem, Nx=4, Ny=4):
     """ Calculates the average density difference between the sites below and above the diagonal  
@@ -309,6 +312,7 @@ def density_imbalance(n_avg, sem, Nx=4, Ny=4):
     std_tot = np.sqrt(var_tot)
 
     return tot_density_imbalance, std_tot
+
 
 def current_imbalance_edges(edge_bonds, bonds, currents, currents_sem, Nx=4, Ny=4):
     """ Calculates the average current difference (imbalance) between the edge 
@@ -364,10 +368,21 @@ def current_imbalance_edges(edge_bonds, bonds, currents, currents_sem, Nx=4, Ny=
 
     return tot_j_imb, std_tot
 
+
 def all_cases_imbalances(simulation, shots_list):
+    """ Loads the data for each simulation and calculate density and current imbalances for all experimental setups. 
+
+    Args:
+        simulation (str): what data to use (H1, Noisy Sim, Ideal Sim)
+        shots_list (list): number of shots/trajectories for each experimental setup
+
+    Returns:
+        density_imbalances: density imbalance and associated error for all setups
+        current_imbalances: current imbalance and associated error for all setups
+    """
 
     stats = ['bosons','fermions',  'bosons', 'fermions', 'fermions', 'fermions']
-    edge_bonds = [[1, 2], [2, 3], [12, 13], [13, 14], [3, 7], [4, 8], [7, 11], [8, 12]] 
+    edge_bonds = [[1, 2], [2, 3], [12, 13], [13, 14], [3, 7], [4, 8], [7, 11], [8, 12]]     # the current imbalance is measured only along the edges of teh system
 
     density_imbalances = np.zeros((2,5))
     current_imbalances = np.zeros((2,5))

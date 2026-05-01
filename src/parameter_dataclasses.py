@@ -2,13 +2,16 @@ from dataclasses import dataclass
 
 @dataclass
 class SimulationParameters:
+    """
+    Data class with initial parameter choices.
+    """
     steps: int
     Nx: int
     Ny: int
     p: float
     bonds: list
-    site_in: int
-    site_out: int
+    site_in: int        # souce
+    site_out: int       # drain
     drive_type: str = "current"  # "current", "dephasing"
     corner_dephasing: bool = False
     initial_state: str = "random"  # "checkerboard", "empty", "random", "custom"

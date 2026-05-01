@@ -1,65 +1,69 @@
 import numpy as np
 from pytket import Circuit, OpType
 
-from .common_circuits import unitary, initial_state, source, sink, two_qubit_rotation
+from .common_circuits import unitary, initial_state, source, drain, two_qubit_rotation
 
 
 def trotter_step_fermions(circ, qr, ancilla, N, J, V, dt, phi=0.0):
-    """
-    Minus signs on bonds [5,6] and [13,14]
+    """Full trotter Hamiltonian: series of unitary building blocks applied 
+    to commuting bonds simultaneously. Note '-J' on bonds [5,6] and [13,14]!
+
+    Args:
+        circ (Circuit): input quantum circuit
+        qr (qr): qubit on numbered site
+        N (int): number of sites
+        J (int): hopping strength.
+        V (int): interaction strength.
+        dt (int): time interval of evolution (T/m).
+        phi (float, optional): Peierls phase (IN UNITS OF PI!!). Defaults to 0.0.
+
     """
 
-    #Top green (h + v):
+    #Green sector (h + v):
     circ.Sdg(ancilla[0])
     circ.H(ancilla[0])  
     circ.CZ(qr[2], ancilla[0])
     circ.CZ(ancilla[0], qr[5])
     unitary(circ, [qr[1], qr[2]], J, V, dt, phi=0*phi)
     unitary(circ, [qr[5], qr[6]], -J, V, dt, phi=1*phi)
-
     circ.CZ(ancilla[0], qr[5])
     circ.H(ancilla[0])
     circ.ZZPhase(0.5, qr[2], ancilla[0])
     circ.H(ancilla[0])
     circ.CZ(ancilla[0], qr[5])
-
     unitary(circ, [qr[1], qr[5]], J, V, dt)
     unitary(circ, [qr[2], qr[6]], J, V, dt)     
     circ.CZ(ancilla[0], qr[5])
     circ.CZ(qr[2], ancilla[0])
     circ.H(ancilla[0]) 
 
-    #Bottom green (h + v): 
     circ.Sdg(ancilla[1])
     circ.H(ancilla[1])    
     circ.CZ(qr[10], ancilla[1])
     circ.CZ(ancilla[1], qr[13])
     unitary(circ, [qr[9], qr[10]], J, V, dt, phi=2*phi)
     unitary(circ, [qr[13], qr[14]], -J, V, dt, phi=3*phi)
-
     circ.CZ(ancilla[1], qr[13])
     circ.H(ancilla[1])
     circ.ZZPhase(0.5, qr[10], ancilla[1])
     circ.H(ancilla[1])
     circ.CZ(ancilla[1], qr[13])
-
     unitary(circ, [qr[9], qr[13]], J, V, dt)
     unitary(circ, [qr[10], qr[14]], J, V, dt)     
     circ.CZ(ancilla[1], qr[13])
     circ.CZ(qr[10], ancilla[1])
     circ.H(ancilla[1]) 
 
-    #Yellow sector:
     unitary(circ, [qr[4], qr[8]], J, V, dt)
     unitary(circ, [qr[7], qr[11]], J, V, dt) 
 
-    #Purple sector
+    #Light blue sector
     for j in range(0, N, 2):
         row = j//4
         unitary(circ, [qr[j], qr[j+1]], J, V, dt, phi=row*phi)
         circ.CZ(qr[j], qr[j+1])
 
-    #Green Sector 2
+    #Yellow Sector
     circ.H(ancilla[0])      
     circ.CZ(qr[4], ancilla[0])
     circ.CZ(ancilla[0], qr[3])
@@ -78,22 +82,21 @@ def trotter_step_fermions(circ, qr, ancilla, N, J, V, dt, phi=0.0):
     circ.CZ(qr[12], ancilla[1])
     circ.H(ancilla[1]) 
 
-    #Yellow sector:
     unitary(circ, [qr[5], qr[9]], J, V, dt)
     unitary(circ, [qr[6], qr[10]], J, V, dt)
 
-    #Blue sector
+    #Dark blue sector
     for j in range(0, N, 2):
         circ.CZ(qr[j], qr[j+1])
 
 
 def trajectory_density(J, V, N, dt, p, steps, start, n_init = [], phi=0.0, name="2D Trajectory Fermions", dephasing = False):
+    """Run one quantum trajectory given initial parameters and at the end, measure occupation on each site. """
 
     circ = Circuit(name=name)
     qr = circ.add_q_register("q", N)  # qubits for particle positions
-    ancilla = circ.add_q_register("a", 2)  # ancillas "a or b"
-    # reg_c = circ.add_c_register("parity_bit", 1)    # parity bit: value will correspond to sum(mod2) of the measured qubits around plaquette
-    qcoin = circ.add_q_register("q_coin", 2)  # coin for source / sink
+    ancilla = circ.add_q_register("a", 2)  # ancillas "a" or "b"
+    qcoin = circ.add_q_register("q_coin", 2)  # coin for source / drain
 
     coin = []
     out = []
@@ -142,8 +145,8 @@ def trajectory_density(J, V, N, dt, p, steps, start, n_init = [], phi=0.0, name=
         # Source step
         source(circ, 0, qr, qcoin[0], coin[step][0], out[step][0], p, dephasing)
 
-        # Sink step
-        sink(circ, N-1, qr, qcoin[1], coin[step][1], out[step][1], p, dephasing)
+        # Drain step
+        drain(circ, N-1, qr, qcoin[1], coin[step][1], out[step][1], p, dephasing)
 
 
     # Apply circuit and measure stabilizer before density to reduce measurement error
@@ -169,6 +172,24 @@ def trajectory_density(J, V, N, dt, p, steps, start, n_init = [], phi=0.0, name=
 
 
 def density_readout(results, N, shots, steps):
+    """Reads the result of measurements on classical bits and uses it to obtain the quantum trajectory data 
+    and density measurements. The results are stored as arrays for future use.
+
+    Args:
+        results (d): measurement result from quantum simulation
+        N (int): total number of qubits
+        shots (int): number of trajectories/measurement shots (one shot per trajectory)
+        steps (int): timesteps of the evolution
+
+    Returns:
+        coin1, coin2: results of coinflips for each timestep. 
+        out1, out2: outcome of corner measurements for each timestep.
+        trajectory_source, trajectory_drain: Kraus operator applied on source/drain at each timestep.
+        c_init: initial occupations 
+        densities: measured occupation pattern for all sites in each trajectory
+        stabilizer: measured value of stabilizer plaquette at the end of each trajectory
+    """
+        
     lookup = {f"{key}": value for key, value in results.c_bits.items()}  # convert to a dictionary with string keys
     data = results.get_shots()
 
@@ -190,7 +211,7 @@ def density_readout(results, N, shots, steps):
     stabilizer[:] = data[:,lookup["stabilizer[0]"]]
 
     trajectory_source = np.zeros((shots, steps), dtype = int)
-    trajectory_sink = np.zeros((shots, steps), dtype = int)
+    trajectory_drain = np.zeros((shots, steps), dtype = int)
 
     for run in range(shots):
         for idx in range(steps):
@@ -203,18 +224,20 @@ def density_readout(results, N, shots, steps):
                     trajectory_source[run, idx] = 2
             if flip2 == 1:
                 if out2[run,idx] == 0:
-                    trajectory_sink[run, idx] = 1
+                    trajectory_drain[run, idx] = 1
                 else:
-                    trajectory_sink[run, idx] = 2
+                    trajectory_drain[run, idx] = 2
     
-    return coin1, coin2, trajectory_source, trajectory_sink, c_init, densities, stabilizer
+    return coin1, coin2, trajectory_source, trajectory_drain, c_init, densities, stabilizer
 
 
 
 def current_rotations(circuit, qr, N, ancilla, sector, phi=0.0):
-    
+    """ Makes two-qubit rotations in given sector on both qubits and ancillas involved. 
+    This is necessary to compute currents from density measurements"""
+
     if sector == 'sector1':
-        print("Running current rotations for sector 1")
+        print("Running current rotations for sector 1") # red sector
         #Bonds (4-8), (7-11):
         two_qubit_rotation(circuit, qr, 4, 8)  
         two_qubit_rotation(circuit, qr, 7, 11) 
@@ -229,7 +252,7 @@ def current_rotations(circuit, qr, N, ancilla, sector, phi=0.0):
         circuit.Rx(0.5, ancilla[1])
 
     elif sector == 'sector2':
-        print("Running current rotations for sector 2")
+        print("Running current rotations for sector 2")     # green sector
         #Bonds (1,5), (2, 6)
         circuit.Ry(-0.5, ancilla[0])
         circuit.CZ(qr[5], ancilla[0])
@@ -247,7 +270,7 @@ def current_rotations(circuit, qr, N, ancilla, sector, phi=0.0):
         circuit.Rx(0.5, ancilla[1])
 
     elif sector == 'sector3':
-        print("Running current rotations for sector 3")
+        print("Running current rotations for sector 3")     # blue sector
         for site in range(0, N, 2):
             row = site//4
             two_qubit_rotation(circuit, qr, site, site+1, phi=row*phi)
@@ -256,7 +279,7 @@ def current_rotations(circuit, qr, N, ancilla, sector, phi=0.0):
         circuit.Rx(0.5, ancilla[1])
 
     elif sector == 'sector4':
-        print("Running current rotations for sector 4")
+        print("Running current rotations for sector 4")    # yellow sector
         
         for site in range(0, N, 2):
             circuit.CZ(qr[site], qr[site+1])
@@ -284,11 +307,13 @@ def current_rotations(circuit, qr, N, ancilla, sector, phi=0.0):
 
 
 def trajectory_current(J, V, N, sector, dt, p, steps, start, n_init = [], phi=0.0, name="1D Trajectory Fermions", dephasing = False):
-
+    """Run one quantum trajectory given initial parameters and at the end measure densities on the sites in the selected non-overlapping sector of bonds.
+     From these measurements instantaneous currents will be computed. """
+    
     circ = Circuit(name=name)
     qr = circ.add_q_register("q", N)  # qubits for particle positions
     ancilla = circ.add_q_register("a", 2)  # ancillas "a/b"
-    qcoin = circ.add_q_register("q_coin", 2)  # coin for source / sink
+    qcoin = circ.add_q_register("q_coin", 2)  # coin for source / drain
 
     coin = []
     out = []
@@ -339,8 +364,8 @@ def trajectory_current(J, V, N, sector, dt, p, steps, start, n_init = [], phi=0.
         # Source step
         source(circ, 0, qr, qcoin[0], coin[step][0], out[step][0], p, dephasing)
 
-        # Sink step
-        sink(circ, N-1, qr, qcoin[1], coin[step][1], out[step][1], p, dephasing)
+        # drain step
+        drain(circ, N-1, qr, qcoin[1], coin[step][1], out[step][1], p, dephasing)
 
     # Measure particle densities
     current_rotations(circ, qr, N, ancilla, sector, phi=phi)
@@ -353,7 +378,7 @@ def trajectory_current(J, V, N, sector, dt, p, steps, start, n_init = [], phi=0.
         circ.Measure(qr[ii], densities[ii])
 
 
-    ### Classical post-processing to get stabilizer value (comment if using CNOT method!) ###
+    ### Classical post-processing to get stabilizer value ###
     if sector == "sector1":
         print("Running measurements for sector 1")
         circ.add_clexpr_from_logicexp(den_ancillas[0] ^ den_ancillas[1] ^ densities[4] ^ densities[5] ^ densities[6] ^ densities[7] ^ densities[8] ^ densities[9] ^ densities[10] ^ densities[11], stabilizer)
@@ -375,6 +400,23 @@ def trajectory_current(J, V, N, sector, dt, p, steps, start, n_init = [], phi=0.
 
 
 def current_readout(sector, results, N, shots, steps):
+    """Reads the result of measurements on classical bits and uses it to obtain the quantum trajectory data 
+    and density measurements on sites included in current sector. The results are stored as arrays for future use.
+
+    Args:
+        results (d): measurement result from quantum simulation
+        N (int): total number of qubits
+        shots (int): number of trajectories/measurement shots (one shot per trajectory)
+        steps (int): timesteps of the evolution
+
+    Returns:
+        coin1, coin2: results of coinflips for each timestep. 
+        out1, out2: outcome of corner measurements for each timestep.
+        trajectory_source, trajectory_drain: Kraus operator applied on source/drain at each timestep.
+        c_init, ancilla_c_init: initial occupations on sites and ancillas
+        den_currents, den_ancillas: measured occupation pattern for sites and ancillas in given current sector for each trajectory.
+        stabilizer: measured value of stabilizer plaquette at the end of each trajectory
+    """
 
     lookup = {f"{key}": value for key, value in results.c_bits.items()}  # convert to a dictionary with string keys
     data = results.get_shots()
@@ -406,7 +448,7 @@ def current_readout(sector, results, N, shots, steps):
     stabilizer[:] = data[:,lookup["stabilizer[0]"]]
 
     trajectory_source = np.zeros((shots, steps), dtype = int)
-    trajectory_sink = np.zeros((shots, steps), dtype = int)
+    trajectory_drain = np.zeros((shots, steps), dtype = int)
 
     for run in range(shots):
         for idx in range(steps):
@@ -419,8 +461,8 @@ def current_readout(sector, results, N, shots, steps):
                     trajectory_source[run, idx] = 2
             if flip2 == 1:
                 if out2[run,idx] == 0:
-                    trajectory_sink[run, idx] = 1
+                    trajectory_drain[run, idx] = 1
                 else:
-                    trajectory_sink[run, idx] = 2
+                    trajectory_drain[run, idx] = 2
     
-    return coin1, coin2, out1, out2, den_currents, den_ancillas, c_init, ancilla_c_init, trajectory_source, trajectory_sink, stabilizer
+    return coin1, coin2, out1, out2, den_currents, den_ancillas, c_init, ancilla_c_init, trajectory_source, trajectory_drain, stabilizer

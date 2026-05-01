@@ -6,7 +6,7 @@ from pytket.extensions.quantinuum import QuantinuumBackend, QuantinuumAPIOffline
 def run_local(circuits, shots):
     # Initialise the local Quantinuum backend
     api_offline = QuantinuumAPIOffline()
-    backend = QuantinuumBackend(device_name="H1-1LE", api_handler=api_offline)      # local noiseless emulator
+    backend = QuantinuumBackend(device_name="H1-1LE", api_handler=api_offline)      # run on local noiseless emulator "H1-1LE"
 
     compiled_circuits = [backend.get_compiled_circuit(circuit)for circuit in circuits]
     results = backend.run_circuits(compiled_circuits, n_shots=shots)
@@ -47,14 +47,14 @@ def initial_state(circ, num_qubits, filling = 'random', n_init =[]):
 
 
 def unitary(circ, wires, J, V, dt, phi=0.0): 
-    """Two-qubit building block of the trotterized Hamiltonian consisting of a TK2 gate.
+    """Two-qubit building block of the trotterized Hamiltonian.
 
     Args:
-        circ (Circuit): the quantum circuit to modify
+        circ (Circuit): input quantum circuit
         wires (list): sites on a chosen bond. For magnetic field this assumes wires[0] < wires[1]
         J (int): hopping strength.
         V (int): interaction strength.
-        dt (int): time interval of evolution (T/M).
+        dt (int): time interval of evolution (T/m).
         phi (float, optional): Peierls phase (IN UNITS OF PI!!). Defaults to 0.0.
     """
 
@@ -78,33 +78,37 @@ def unitary(circ, wires, J, V, dt, phi=0.0):
     circ.Rz(-2*V_dt/np.pi, wires[0])
 
 
-def sink(circuit, site, qr, qcoin, coin, out, p, dephasing = False):
-
+def drain(circ, site, qr, qcoin, coin, out, p, dephasing = False):
+    """ Non-unitary evolution on the drain conditioned on quantum coin flip.
+    """
+    # rotation angl for quantum coin 
     theta = 2/np.pi * np.arcsin(np.sqrt(p))
     
-    circuit.Ry(theta, qcoin)  # coin flip
-    circuit.Measure(qcoin, coin)  # measure coin
-    circuit.Reset(qcoin)  # reset coin and keep in zero
+    circ.Ry(theta, qcoin)  # coin flip
+    circ.Measure(qcoin, coin)  # measure coin
+    circ.Reset(qcoin)  # reset coin and keep in zero
 
     # mid-circuit measurement and reset (should only happen if coin[step] == 1)
-    circuit.Measure(qr[site], out, condition_bits=[coin], condition_value=1)  # measure particle position
-    circuit.Reset(qr[site], condition_bits=[coin], condition_value=1)
+    circ.Measure(qr[site], out, condition_bits=[coin], condition_value=1)  # measure particle position
+    circ.Reset(qr[site], condition_bits=[coin], condition_value=1)
     if dephasing:
-        circuit.X(qr[site], condition_bits=[out], condition_value=1)  # re-use measurement 
+        circ.X(qr[site], condition_bits=[out], condition_value=1)  # re-use measurement 
 
 
-def source(circuit, site, qr, qcoin, coin, out, p,dephasing = False):
-
+def source(circ, site, qr, qcoin, coin, out, p,dephasing = False):
+    """  Non-unitary evolution on the source conditioned on quantum coin flip.
+    """
     if dephasing:
-        sink(circuit, site, qr, qcoin, coin, out, p, dephasing)
+        drain(circ, site, qr, qcoin, coin, out, p, dephasing)
     else:
-        sink(circuit, site, qr, qcoin, coin, out, p, dephasing)
-        circuit.X(qr[site], condition_bits=[coin], condition_value=1)  # create particle at source site
+        drain(circ, site, qr, qcoin, coin, out, p, dephasing)
+        circ.X(qr[site], condition_bits=[coin], condition_value=1)  # create particle at source site
 
 
 def two_qubit_rotation(circuit, qr, qubit1, qubit2, phi=0.0):
-    """ makes the following two-qubit rotations: <XY> -> <1Z>,  <YX> -> <Z1>
-    Note: phi is specified in units of pi!! I.e. actual phi -> pi * phi
+    """ Makes the two-qubit rotation: 
+            M = <R_z(-phi/2) XY R_z(phi/2)> -> <1Z>,  <R_z(phi/2) YX R_z(-phi/2)> -> <Z1>
+        necessary to measure currents on a given bond.
     """
 
     if phi != 0.0:

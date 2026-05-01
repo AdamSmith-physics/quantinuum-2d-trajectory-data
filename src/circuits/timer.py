@@ -2,7 +2,7 @@ import timeit
 import datetime
 
 class Timer:
-    """Measure time used."""
+    """Measure time elapsed."""
 
     def __init__(self, round_ndigits: int = 0):
         self._round_ndigits = round_ndigits

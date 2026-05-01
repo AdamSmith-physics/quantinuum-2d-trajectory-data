@@ -68,7 +68,8 @@ def acceptance_check(E_new, E_old):
 
 @njit
 def trajectory(procid, data):
-    
+    """Run a set of SSEP trajectories and obtain list of densities and currents."""
+
     state = random_state()  # Use a new random state for each trajectory
 
     previous_state = state.copy()
@@ -143,6 +144,7 @@ if __name__ == "__main__":
     print("Running trajectories...")
     n_avg, avg_currents = run_simulation()
     print("Finished!")
+    
     ################ PLOT THE FINAL TIME SNAPSHOT  #################
 
     plotting_threshold = 0.0  # Threshold for plotting currents
@@ -172,12 +174,8 @@ if __name__ == "__main__":
     
     fig, ax = plt.subplots(figsize = (6,6))
 
-    norm = mpl.colors.Normalize(vmin=0, vmax=0.2)
-    cmap_range = mpl.cm.YlGn(np.linspace(0, 1, 500))
-    cmap = mpl.colors.ListedColormap(cmap_range)
-    p1 = ax.quiver(X, Y, U, V, C, cmap=cmap, norm=norm, angles='xy', scale_units='xy', scale=1, width=arrow_width)
+    p1 = ax.quiver(X, Y, U, V, C, cmap="YlGn", angles='xy', scale_units='xy', scale=1, width=arrow_width)
     cb1 = plt.colorbar(p1, ax=ax, orientation='vertical', shrink=0.53, pad=0.1)
-    cb1.set_ticks(np.arange(0, 0.21, 0.04))
     cb1.ax.tick_params(labelsize=13)
     cb1.set_label('Current Magnitude', labelpad=1, fontsize = 15)
     
@@ -189,11 +187,9 @@ if __name__ == "__main__":
             Y.append(y)
             C.append(n_avg[-1,n])
     
-    cmap_range = mpl.cm.RdBu_r(np.linspace(-0.5, 1.5, 500))
-    cmap = mpl.colors.ListedColormap(cmap_range)
-    p2 = ax.scatter(X, Y, c=C, cmap=cmap, s=marker_size, edgecolors= "black", vmin=0, vmax=1)
+
+    p2 = ax.scatter(X, Y, c=C, cmap="RdBu_r", s=marker_size, edgecolors= "black", vmin=0, vmax=1)
     cb2 = plt.colorbar(p2, ax=ax, orientation='vertical', shrink=0.53, pad=0.1)
-    cb2.set_ticks(np.arange(0, 1.1, 0.2))
     cb2.ax.tick_params(labelsize=13)
     cb2.set_label('Density', labelpad=1, fontsize = 15)
     
@@ -203,5 +199,4 @@ if __name__ == "__main__":
     ax.set_aspect('equal')
     
     plt.savefig(f"figures/SSEP_{Nx}x{Ny}_steps{steps}_V+1_trajectories{num_iterations}.pdf", bbox_inches='tight', pad_inches=0.1, dpi=300)
-    
     plt.show()

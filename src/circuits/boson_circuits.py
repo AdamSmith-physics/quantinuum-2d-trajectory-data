@@ -1,15 +1,15 @@
 import numpy as np
 from pytket import Circuit, OpType
 
-from .common_circuits import unitary, initial_state, source, sink, two_qubit_rotation
+from .common_circuits import unitary, initial_state, source, drain, two_qubit_rotation
 
 np.set_printoptions(legacy='1.25')
 
 
 def commuting_bonds(N, staggered = True):
-    '''Creates a list of sites for the 4 sectors of commuting bonds.
-    Default order is horizontal_even, vertical_even, horizontal_odd, vertical_odd.
-    Here even refers to including site 0, odd to not including site 0.
+    '''Creates a list of sites for four sectors of commuting bonds.
+    Default staggered order is horizontal_even, vertical_even, horizontal_odd, vertical_odd.
+    "Even" includes sites 0 and excludes site 15, "odd" does the opposite.
     '''
     n = int(np.sqrt(N))
 
@@ -43,13 +43,13 @@ def commuting_bonds(N, staggered = True):
 
 def trotter_step_bosons(circ, N, J, V, dt, sector_list, phi=0.0):
     """Full trotter Hamiltonian: series of unitary building blocks applied 
-        to commuting bonds simultaneously. 4 Commuting sectors in total.
+        to commuting bonds simultaneously.
 
     Args:
         N (int): number of sites
         J (int): hopping strength.
         V (int): interaction strength.
-        dt (int): time interval of evolution (T/M).
+        dt (int): time interval of evolution (T/m).
         phi (float, optional): Peierls phase (IN UNITS OF PI!!). Defaults to 0.0.
 
     """
@@ -69,6 +69,7 @@ def trotter_step_bosons(circ, N, J, V, dt, sector_list, phi=0.0):
 
 
 def trajectory_density(J, V, N, dt, p, steps, start, n_init = [], sector_list=None, phi=0.0, name="2D Trajectory Bosons", dephasing = False):
+    """Run one quantum trajectory given initial parameters and at the end, measure occupation on each site. """
 
     if sector_list is None:
         sector_list = commuting_bonds(N, staggered=True)  # Default sectors of commuting bonds
@@ -77,7 +78,7 @@ def trajectory_density(J, V, N, dt, p, steps, start, n_init = [], sector_list=No
 
     circ = Circuit(name=name)
     qr = circ.add_q_register("q", N)  # qubits for particle positions
-    qcoin = circ.add_q_register("q_coin", 2)  # coin for source / sink
+    qcoin = circ.add_q_register("q_coin", 2)  # coin for source / drain
 
     coin = []
     out = []
@@ -85,9 +86,9 @@ def trajectory_density(J, V, N, dt, p, steps, start, n_init = [], sector_list=No
         coin.append(circ.add_c_register(f"coin_{step}", 2))
         out.append(circ.add_c_register(f"out_{step}", 2))
     densities = circ.add_c_register("densities", N)  # record particle densities
-    c_init = circ.add_c_register("c_init", N)  # initial condition for
+    c_init = circ.add_c_register("c_init", N)  # classical register for initial measured densities
 
-    # Create random product state initial state
+    # Create initial state
     initial_state(circ, N, filling = start, n_init= n_init)
     for ii in range(N):
         circ.Measure(qr[ii], c_init[ii])
@@ -101,8 +102,8 @@ def trajectory_density(J, V, N, dt, p, steps, start, n_init = [], sector_list=No
         # Source step
         source(circ, 0, qr, qcoin[0], coin[step][0], out[step][0], p, dephasing)
 
-        # Sink step
-        sink(circ, N-1, qr, qcoin[1], coin[step][1], out[step][1], p, dephasing)
+        # Drain step
+        drain(circ, N-1, qr, qcoin[1], coin[step][1], out[step][1], p, dephasing)
 
     # Measure particle densities
     for ii in range(N):
@@ -112,13 +113,15 @@ def trajectory_density(J, V, N, dt, p, steps, start, n_init = [], sector_list=No
 
 
 def trajectory_current(J, V, N, sector, dt, p, steps, start, n_init = [], sector_list=None, phi=0.0, name="2D Trajectory Bosons", dephasing = False):
+    """Run one quantum trajectory given initial parameters and at the end measure densities on the sites in the selected non-overlapping sector of bonds.
+     From these measurements instantaneous currents will be computed. """
 
     if sector_list is None:
         sector_list = commuting_bonds(N, staggered=True)  # Default sectors of commuting bonds
 
     circ = Circuit(name=name)
     qr = circ.add_q_register("q", N)  # qubits for particle positions
-    qcoin = circ.add_q_register("q_coin", 2)  # coin for source / sink
+    qcoin = circ.add_q_register("q_coin", 2)  # coin for source / drain
 
     coin = []
     out = []
@@ -142,8 +145,8 @@ def trajectory_current(J, V, N, sector, dt, p, steps, start, n_init = [], sector
         # Source step
         source(circ, 0, qr, qcoin[0], coin[step][0], out[step][0], p, dephasing)
 
-        # Sink step
-        sink(circ, N-1, qr, qcoin[1], coin[step][1], out[step][1], p, dephasing)
+        # Drain step
+        drain(circ, N-1, qr, qcoin[1], coin[step][1], out[step][1], p, dephasing)
 
     circ.add_barrier(range(N)) # add a barrier on all qubits and bits
     # Turn current into density
@@ -159,7 +162,7 @@ def trajectory_current(J, V, N, sector, dt, p, steps, start, n_init = [], sector
 
         two_qubit_rotation(circ, qr, bond[0], bond[1], phi=bond_phi)
 
-    # Measure particle densities
+    # Measure particle densities on specific sector of commuting bonds
     for ii in range(N):
         circ.Measure(qr[ii], currents[ii])
 
@@ -167,6 +170,23 @@ def trajectory_current(J, V, N, sector, dt, p, steps, start, n_init = [], sector
 
 
 def density_readout(results, N, shots, steps):
+    """Reads the result of measurements on classical bits and uses it to obtain the quantum trajectory data 
+    and density measurements. The results are stored as arrays for future use.
+
+    Args:
+        results (d): measurement result from quantum simulation
+        N (int): total number of qubits
+        shots (int): number of trajectories/measurement shots (one shot per trajectory)
+        steps (int): timesteps of the evolution
+
+    Returns:
+        coin1, coin2: results of coinflips for each timestep. 
+        out1, out2: outcome of corner measurements for each timestep.
+        trajectory_source, trajectory_drain: Kraus operator applied on source/drain at each timestep.
+        c_init: initial occupations 
+        densities: measured occupation pattern for all sites in each trajectory
+    """
+
     lookup = {f"{key}": value for key, value in results.c_bits.items()}  # convert to a dictionary with string keys
     data = results.get_shots()
 
@@ -186,7 +206,7 @@ def density_readout(results, N, shots, steps):
         c_init[:, ii] = data[:,lookup[f"c_init[{ii}]"]]
 
     trajectory_source = np.zeros((shots, steps), dtype = int)
-    trajectory_sink = np.zeros((shots, steps), dtype = int)
+    trajectory_drain = np.zeros((shots, steps), dtype = int)
 
     for run in range(shots):
         for idx in range(steps):
@@ -199,14 +219,31 @@ def density_readout(results, N, shots, steps):
                     trajectory_source[run, idx] = 2
             if flip2 == 1:
                 if out2[run,idx] == 0:
-                    trajectory_sink[run, idx] = 1
+                    trajectory_drain[run, idx] = 1
                 else:
-                    trajectory_sink[run, idx] = 2
+                    trajectory_drain[run, idx] = 2
     
-    return coin1, coin2, out1, out2, trajectory_source, trajectory_sink, c_init, densities
+    return coin1, coin2, out1, out2, trajectory_source, trajectory_drain, c_init, densities
 
 
 def current_readout(sector, results, N, shots, steps):
+    """Reads the result of measurements on classical bits and uses it to obtain the quantum trajectory data 
+    and density measurements on sites included in current sector. The results are stored as arrays for future use.
+
+    Args:
+        results (d): measurement result from quantum simulation
+        N (int): total number of qubits
+        shots (int): number of trajectories/measurement shots (one shot per trajectory)
+        steps (int): timesteps of the evolution
+
+    Returns:
+        coin1, coin2: results of coinflips for each timestep. 
+        out1, out2: outcome of corner measurements for each timestep.
+        trajectory_source, trajectory_drain: Kraus operator applied on source/drain at each timestep.
+        c_init: initial occupations 
+        den_currents: measured occupation pattern for sites in given current sector for each trajectory.
+    """
+
     lookup = {f"{key}": value for key, value in results.c_bits.items()}  # convert to a dictionary with string keys
     data = results.get_shots()
 
@@ -229,7 +266,7 @@ def current_readout(sector, results, N, shots, steps):
         den_currents[:, ii] = data[:, lookup[f"currents[{ii}]"]]
 
     trajectory_source = np.zeros((shots, steps), dtype = int)
-    trajectory_sink = np.zeros((shots, steps), dtype = int)
+    trajectory_drain = np.zeros((shots, steps), dtype = int)
 
     for run in range(shots):
         for idx in range(steps):
@@ -242,8 +279,8 @@ def current_readout(sector, results, N, shots, steps):
                     trajectory_source[run, idx] = 2
             if flip2 == 1:
                 if out2[run,idx] == 0:
-                    trajectory_sink[run, idx] = 1
+                    trajectory_drain[run, idx] = 1
                 else:
-                    trajectory_sink[run, idx] = 2
+                    trajectory_drain[run, idx] = 2
     
-    return coin1, coin2, out1, out2, trajectory_source, trajectory_sink, c_init, den_currents
+    return coin1, coin2, out1, out2, trajectory_source, trajectory_drain, c_init, den_currents

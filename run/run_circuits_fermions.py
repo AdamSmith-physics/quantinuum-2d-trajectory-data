@@ -8,7 +8,10 @@ import sys
 import os
 import numpy as np
 
-#PARAMETERS
+######################## PARAMETERS ######################
+N = 16 # Number of sites
+J = 1
+dephasing = False
 V = 0.0
 phi = 0.0 # Peierls phase in units of pi
 dt = 0.21
@@ -29,17 +32,13 @@ print(f"start = {start}")
 if start == 'custom':
     print(f"n_init = {n_init}\n")
 
-N = 16 # Number of sites
-J = 1
-dephasing = False
-
 
 sector_bonds = [[[4, 8], [7, 11], [1, 2], [5, 6], [9, 10], [13, 14]]]  # sector 1
 sector_bonds.append([[1, 5], [2, 6], [9, 13], [10, 14]])  # sector 2
 sector_bonds.append([[0, 1], [2, 3], [4, 5], [6, 7], [8, 9], [10, 11], [12, 13], [14, 15]])  # sector 3
 sector_bonds.append([[5, 9], [6, 10], [0, 4], [3, 7], [8, 12], [11, 15]])  # sector 4
 
-#LOAD AND RUN CIRCUIT 
+######################## RUN CIRCUIT #######################
 print("Building circuits...")
 circ_density = trajectory_density(J, V, N=N, dt=dt, p=p, steps=steps, start=start, n_init=n_init, phi=phi, name="2D Trajectory Fermions", dephasing = dephasing)
 circ_current_1 = trajectory_current(J, V, N=N, dt=dt, sector='sector1', p=p, steps=steps, start=start, n_init=n_init, phi=phi, name="2D Trajectory Fermions - Current sector1", dephasing = dephasing)
@@ -55,7 +54,7 @@ print("Running..."); timer = Timer()
 results_local = run_local(circuits, shots=shots)
 print(f"Finished running! Time elapsed is {timer}.\n")
 
-
+######################## READ RESULTS ####################### 
 print("Reading results...")
 data = dict()
 data["parameters"] = {
@@ -114,7 +113,7 @@ print(f"Results read.\n")
 
 print("Saving results...")
 
-#SAVE THE OUTPUTS
+######################## SAVE THE OUTPUTS #######################
 # Create data directory if it doesn't exist
 if not os.path.exists(f'data_local'):
     os.makedirs(f'data_local')
