@@ -1,10 +1,10 @@
 # Quantum trajectory simulation of two-dimensional non-equilibrium steady states with a trapped ion quantum processor
 
-Data repository for the paper "Quantum trajectory simulation of two-dimensional non-equilibrium steady states with a trapped ion quantum processor". This repository contain all data files from both experimental and classical simulations and simple codes to generate, load and plot the data. Besides plotting the data from the expriment, this repository contains the cpodes to run classical simulations of Symmetric Simple Exclusion Process (SSEP), generate free-fermion trajectories and run quantum circuits on Quantinuum's "H1-1LE" backend.
+Data repository for the paper "Quantum trajectory simulation of two-dimensional non-equilibrium steady states with a trapped ion quantum processor". This repository contains all data files from both experimental and classical simulations, with simple codes to generate, load and plot the data. This repository also contains the codes to run quantum circuits on Quantinuum's "H1-1LE" backend, as well as classical simulations of Symmetric Simple Exclusion Process (SSEP) and free-fermion trajectories.
 
 ## Content
 
-The `data/` folder contains the results from Quantinuum's H1-1 simulations, noisy simulation (on Quantinuum's H1-1E and H1-Emultor devices) and classical numerics, all saved as HDF5 files. The latter include ideal simulations of trotterised cicuits and the simulations in the Lindblad limit $dt \rightarrow 0$.
+The `data/` folder contains the results from Quantinuum's H1-1 simulations, noisy simulation (on Quantinuum's H1-1E and H1-Emultor devices) and classical numerics, all saved as HDF5 files. The latter include ideal simulations of trotterised circuits and the simulations in the Lindblad limit $dt \rightarrow 0$.
 
 The core files to run simulations are contained in `src/` and `run/`. In the former, there are all codes required to set up the free-fermion simulation and to build circuits for both hard-core bosons and fermions. The codes that effectively run the trajectories are contained in `run/`.
 Note that when running circuit trajectories, the results are saved in a single HDF5 file that will be added in a `data_local/` folder, which is included in `.gitignore`.
